@@ -1,43 +1,20 @@
-"""
-WSGI config for project project.
-
-It exposes the WSGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
-"""
-
 import os
 import sys
-
-# 패키지 경로 강제 추가
-sys.path.append("/usr/local/lib/python3.12/site-packages")
-sys.path.append("/app")
-
+from pathlib import Path
 from django.core.wsgi import get_wsgi_application
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.django import DjangoInstrumentor
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
+# 💡 현재 위치를 Python 탐색 경로에 강제로 추가 (경로 오류 원천 차단)
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+sys.path.append(os.path.join(BASE_DIR, "user-service"))
+sys.path.append(os.path.join(BASE_DIR, "story-service"))
+sys.path.append(os.path.join(BASE_DIR, "activity-service"))
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
 
-# Tracing 서비스 이름 설정
-resource = Resource(attributes={
-    "service.name": os.getenv("OTEL_SERVICE_NAME", "user-service")
-})
-
-# Tracer Provider 설정 (데이터를 수집하고 쏘는 주체)
-provider = TracerProvider(resource=resource)
-otlp_exporter = OTLPSpanExporter(endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://jaeger:4317"), insecure=True)
-processor = BatchSpanProcessor(otlp_exporter)
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
-
-# Django 자동 추적 활성화
-DjangoInstrumentor().instrument()
-
-application = get_wsgi_application()
+try:
+    application = get_wsgi_application()
+except Exception as e:
+    # 💡 에러 발생 시 로그에 상세히 남깁니다.
+    print(f"WSGI Loading Error: {e}")
+    raise e
